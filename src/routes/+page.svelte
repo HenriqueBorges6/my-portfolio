@@ -10,7 +10,7 @@
 <p>Hello Wordl ! Wellcome to my site
 My name is Henrique, I study Data Science at FGV.</p>
 
-{#await fetch("https://api.github.com/users/mike")}
+{#await fetch("https://api.github.com/users/HenriqueBorges6")}
   <p>Loading...</p>
 {:then response}
   {#await response.json()}
