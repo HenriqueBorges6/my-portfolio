@@ -1,5 +1,6 @@
 <script>
 export let data = [];
+export let selectedIndex = -1;
 
 
 import * as d3 from 'd3';
@@ -25,9 +26,13 @@ let arcs;
 
 <div class="container">
 <svg viewBox="-50 -50 100 100">
-    {#each arcs as arc, index}
-        <path d={arc} fill={colors(index)} />
-    {/each}
+{#each arcs as arc, index}
+    <path d={arc} fill={ colors(index) }
+          class:selected={selectedIndex === index}
+          on:click={e => selectedIndex = selectedIndex === index ? -1 : index}
+/>
+{/each}
+
 </svg>
 
 <ul class="legend">
@@ -108,6 +113,10 @@ ul:has(.selected) li:not(.selected) {
 
 path:hover {
 	opacity: 100% !important;
+}
+path {
+    /* ... */
+    cursor: pointer;
 }
 
 </style>
