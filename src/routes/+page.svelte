@@ -1,35 +1,55 @@
 <svelte:head>
-    <title>Home</title>
+    <title>My page</title>
 </svelte:head>
 
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
+<script>
+    import projects from "$lib/projects.json";
+    import Project from "$lib/Project.svelte";
 
-<img src="./images/Henrique_Borges1.jpg" alt="Myself" height="400px">
+    import { onMount } from "svelte";
+    
+    let githubData = null;
+    let loading = true;
+    let error = null;
 
-<p>Hello Wordl ! Wellcome to my site
-My name is Henrique, I study Data Science at FGV.</p>
+    onMount(async () => {
+        try {
+            const response = await fetch("https://api.github.com/users/HenriqueBorges6");
+            githubData = await response.json();
+        } catch (err) {
+            error = err;
+        }
+        loading = false;
+    });
 
-{#await fetch("https://api.github.com/users/HenriqueBorges6")}
-  <p>Loading...</p>
-{:then response}
-  {#await response.json()}
-    <p>Decoding...</p>
-  {:then data} 
+    </script>
+<h1> HenriqueBorges6</h1>
+ 
+<p>Aluno EMAp</p>
+
+<h2>Latest projects</h2>
+<div class="projects">
+{#each projects.slice(0, 3) as p}
+    <Project data={p} hLevel="3" />
+{/each}
+
+{#if loading}
+    <p>Loading...</p>
+{:else if error}
+    <p class="error">Something went wrong: {error.message}</p>
+{:else}
     <section>
-      <h2>My Github Stats</h2>
-      <dl>
-        <dt>Followers</dt>
-        <dd>{data.followers}</dd>
-        <dt>Following</dt>
-        <dd>{data.following}</dd>
-        <dt>Public Repos</dt>
-        <dd>{data.public_repos}</dd>
-      </dl>
+        <h2>My GitHub Stats</h2>
+        <dl>
+            <dt>Followers</dt>
+            <dd>{githubData.followers}</dd>
+            <dt>Following</dt>
+            <dd>{githubData.following}</dd>
+            <dt>Public Repositories</dt>
+            <dd>{githubData.public_repos}</dd>
+        </dl>
     </section>
-  {:catch error}
-    <p class="error">Something went wrong: {error.message}</p>
-  {/await}
-  {:catch error}
-    <p class="error">Something went wrong: {error.message}</p>
-{/await}
+{/if}
+
+
+</div>
