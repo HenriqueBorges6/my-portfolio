@@ -1,7 +1,14 @@
 <script>
 	import * as d3 from "d3";
 	import { onMount } from "svelte";
-	
+	import {
+    	computePosition,
+    	autoPlacement,
+    	offset,
+	} from '@floating-ui/dom';
+	import Bar from '$lib/Bar.svelte';
+
+
 	let data = [];
 	let commits = [];
 	let width = 1000, height = 600;
@@ -20,7 +27,24 @@
 	usableArea.width = usableArea.right - usableArea.left;
 	usableArea.height = usableArea.bottom - usableArea.top;
 	let hoveredIndex = -1;
-$: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
+
+	let commitTooltip;
+	let tooltipPosition = {x: 0, y: 0};
+
+	let clickedCommits = [];
+
+	let commitProgress = 100;
+
+	$: hoveredCommit = filteredCommits[hoveredIndex] ?? hoveredCommit ?? {};
+
+	function dotInteraction (index, evt) {
+    if (evt.type === "mouseenter") {
+        // dot hovered
+    }
+    else if (evt.type === "mouseleave") {
+        // dot unhovered
+    }
+}
 
 	
 	onMount(async () => {
@@ -32,7 +56,6 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 		date: new Date(row.date + "T00:00" + row.timezone),
 		datetime: new Date(row.datetime)
 		}));
-	
 		commits = d3.groups(data, d => d.commit).map(([commit, lines]) => {
 		let first = lines[0];
 		let {author, date, time, timezone, datetime} = first;
@@ -43,7 +66,8 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 			hourFrac: datetime.getHours() + datetime.getMinutes() / 60,
 			totalLines: lines.length
 		};
-	
+		commits = d3.sort(commits, d => -d.totalLines);
+
 		// Like ret.lines = lines
 		// but non-enumerable so it doesn’t show up in JSON.stringify
 		Object.defineProperty(ret, "lines", {
@@ -62,18 +86,27 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 	
 	$: minDate = d3.min(commits.map(d => d.date));
 	$: maxDate = d3.max(commits.map(d => d.date));
-	$: maxDatePlusOne = new Date(maxDate);
+
+	$: minDatefiltered = d3.min(filteredCommits.map(d => d.date));
+	$: maxDatefiltered = d3.max(filteredCommits.map(d => d.date));
+	
+	$: maxDatePlusOne = new Date(maxDatefiltered);
 	$: maxDatePlusOne.setDate(maxDatePlusOne.getDate() + 1);
 	
 	$: xScale = d3.scaleTime()
-				  .domain([minDate, maxDatePlusOne])
+				  .domain([minDatefiltered, maxDatePlusOne])
 				  .range([usableArea.left, usableArea.right])
 				  .nice();
 	
 	$: yScale = d3.scaleLinear()
 				  .domain([24, 0])
 				  .range([usableArea.bottom, usableArea.top]);
-	
+				  
+	$: rScale = d3.scaleSqrt()
+    	        .domain(d3.extent(commits.map(d=>d.totalLines)))
+                .range([2, 30]);
+
+
 	$: {
 		d3.select(xAxis).call(d3.axisBottom(xScale));
 		d3.select(yAxis).call(d3.axisLeft(yScale).tickFormat(d => String(d % 24).padStart(2, "0") + ":00"));
@@ -87,9 +120,24 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 		);
 	}
 	
+	$: allTypes = Array.from(new Set(data.map(d => d.type)));
+	$: selectedLines = (clickedCommits.length > 0 ? clickedCommits : filteredCommits).flatMap(d => d.lines);
+	$: selectedCounts = d3.rollup(
+		selectedLines,
+		v => v.length,
+		d => d.type
+	);
+$: timeScale = d3.scaleTime().domain([minDate,maxDate]).range([0,100]);
+$: commitMaxTime = timeScale.invert(commitProgress);
+
+$: filteredCommits = commits.filter(d => d.datetime <= commitMaxTime);
+$: filteredLines = filteredCommits.flatMap(d => d.lines);
+
+
+$: languageBreakdown = allTypes.map(type => [type, selectedCounts.get(type) || 0]);
+
 	
-	
-	</script>
+</script>
 	<svelte:head>
 	<title>Meta</title>
 	</svelte:head>
@@ -97,8 +145,9 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 	<p>This page includes stats about the code of this website</p>
 	<p>Total lines of code: {data.length}</p>
 
-	<dl class="info tooltip" hidden={hoveredIndex === -1} style="top: {cursor.y}px; left: {cursor.x}px">
-		<dt>Commit</dt>
+	<!-- Other attributes omitted for brevity -->
+	<dl class="info tooltip" bind:this={commitTooltip}>
+	<dt>Commit</dt>
 		<dd><a href="{ hoveredCommit.url }" target="_blank">{ hoveredCommit.id }</a></dd>
 	
 		<dt>Date</dt>
@@ -112,15 +161,23 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 	
 		<!-- Add: Time, author, lines edited -->
 	</dl>
-	
+	<div class="slider-container">
+		<div class="slider">
+			<label for="slider">Show commits until:</label>
+			<input type="range" id="slider" name="slider" min=0 max=100 bind:value={commitProgress}/>
+		</div>
+		<time class="time-label">{commitMaxTime.toLocaleString()}</time>
+	</div>
+   
 	<svg viewBox="0 0 {width} {height}">
 		<g transform="translate(0, {usableArea.bottom})" bind:this={xAxis} />
 		<g transform="translate({usableArea.left}, 0)" bind:this={yAxis} />	
 		<g class="gridlines" transform="translate({usableArea.left}, 0)" bind:this={yAxisGridlines} />
 		
 		<g class="dots">
-			{#each commits as commit, index }
-			<circle     
+			{#each filteredCommits as commit, index (commit.id) }
+			<circle class:selected={ clickedCommits.includes(commit) } 
+			on:click={ evt => dotInteraction(index, evt) }
 			on:mouseenter={
 			  evt => {
 				hoveredIndex = index;
@@ -128,51 +185,53 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 			  }
 			}
 			on:mouseleave={evt => hoveredIndex = -1}
-			cx={xScale(commit.datetime)}
-			cy={yScale(commit.hourFrac)}
-			r="5"
+			cx={ xScale(commit.datetime) }
+			cy={ yScale(commit.hourFrac) }
+			r={ rScale(commit.totalLines) }
 			fill="steelblue"
-		  />
+			fill-opacity="0.5"
+		/>
 		  
 			{/each}
-			</g>		
-	
-
+			</g>	
 	</svg>
 	
+	<Bar data={languageBreakdown} width={width} />
+
 	
 	<section>
 		<h2>Summary</h2>
 		<dl class="stats">
 		<dt>Total <abbr title="Lines of code">LOC</abbr></dt>
-		<dd>{data.length}</dd>
+		<dd>{filteredLines.length}</dd>
 		<dt>Files</dt>
-		<dd>{d3.groups(data, d => d.file).length}</dd>
+		<dd>{d3.groups(filteredLines, d => d.file).length}</dd>
 		<dt>Commits</dt>
-		<dd>{d3.groups(data, d => d.commit).length}</dd>
+		<dd>{d3.groups(filteredLines, d => d.commit).length}</dd>
 		</dl>
 	</section>
 	
-	<style>
-		dl{
+
+<style>
+	dl{
 			display: grid;
 			grid-template-columns: auto;
-		}
-		dt{
+	}
+	dt{
 			grid-row: 1;
 			font-family: inherit;
 			font-weight: bold;
 			color: var(--border-gray);
 			text-transform: uppercase;
-		}
-		dd{
+	}
+	dd{
 			font-family: inherit;
 			font-weight: bold;
-		}
-		svg {
+	}
+	svg {
 			overflow: visible;
-		}
-		section{
+	}
+	section{
 			border-width:0.15em;
 			border-style:solid;
 			border-color:var(--border-gray);
@@ -219,12 +278,34 @@ $: hoveredCommit = commits[hoveredIndex] ?? hoveredCommit ?? {};
 circle {
     transition: 200ms;
 	transform-origin: center;
-transform-box: fill-box;
+	transform-box: fill-box;
 
 
     &:hover {
         transform: scale(1.5);
     }
+	
+	@starting-style {
+	r: 0;
 }
 
-	</style>
+}
+.selected {
+    fill: var(--color-accent);
+}
+.slider-container{
+	display:grid;
+}
+.slider{
+	display: flex;
+}
+#slider{
+	flex:1;
+}
+.time-label{
+	font-size: 0.75em;
+	text-align: right;
+}
+
+
+</style>
