@@ -37,13 +37,27 @@
 
 	$: hoveredCommit = filteredCommits[hoveredIndex] ?? hoveredCommit ?? {};
 
-	function dotInteraction (index, evt) {
+	async function dotInteraction (index, evt) {
+    let hoveredDot = evt.target;
     if (evt.type === "mouseenter") {
-        // dot hovered
-    }
+        hoveredIndex = index;
+        cursor = {x: evt.x, y: evt.y};
+               }
     else if (evt.type === "mouseleave") {
-        // dot unhovered
+        hoveredIndex = -1
     }
+	else if (evt.type === "click") {
+    let commit = commits[index]
+    if (!clickedCommits.includes(commit)) {
+        // Add the commit to the clickedCommits array
+        clickedCommits = [...clickedCommits, commit];
+    }
+    else {
+            // Remove the commit from the array
+            clickedCommits = clickedCommits.filter(c => c !== commit);
+    }
+}
+
 }
 
 	
@@ -146,8 +160,8 @@ $: languageBreakdown = allTypes.map(type => [type, selectedCounts.get(type) || 0
 	<p>Total lines of code: {data.length}</p>
 
 	<!-- Other attributes omitted for brevity -->
-	<dl class="info tooltip" bind:this={commitTooltip}>
-	<dt>Commit</dt>
+	<dl class="info tooltip" hidden={hoveredIndex === -1} style="top: {cursor.y}px; left: {cursor.x}px">
+		<dt>Commit</dt>
 		<dd><a href="{ hoveredCommit.url }" target="_blank">{ hoveredCommit.id }</a></dd>
 	
 		<dt>Date</dt>
@@ -178,13 +192,9 @@ $: languageBreakdown = allTypes.map(type => [type, selectedCounts.get(type) || 0
 			{#each filteredCommits as commit, index (commit.id) }
 			<circle class:selected={ clickedCommits.includes(commit) } 
 			on:click={ evt => dotInteraction(index, evt) }
-			on:mouseenter={
-			  evt => {
-				hoveredIndex = index;
-				cursor = { x: evt.x, y: evt.y };
-			  }
-			}
-			on:mouseleave={evt => hoveredIndex = -1}
+			
+			on:mouseenter={evt => dotInteraction(index, evt)}
+			on:mouseleave={evt => dotInteraction(index, evt)}
 			cx={ xScale(commit.datetime) }
 			cy={ yScale(commit.hourFrac) }
 			r={ rScale(commit.totalLines) }
