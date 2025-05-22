@@ -8,8 +8,9 @@
 	} from '@floating-ui/dom';
 	import Bar from '$lib/Bar.svelte';
 	import Scrolly from "svelte-scrolly";
+	import FileLines from "$lib/FileLines.svelte";
 
-
+	let colorScale = d3.scaleOrdinal(d3.schemeTableau10);
 	let data = [];
 	let commits = [];
 	let width = 1000, height = 600;
@@ -184,6 +185,8 @@ $: languageBreakdown = allTypes.map(type => [type, selectedCounts.get(type) || 0
 		<time class="time-label">{commitMaxTime.toLocaleString()}</time>
 	</div>
    
+<FileLines lines={filteredLines} width={width}/>
+
 <Scrolly bind:progress={ commitProgress }>
 	{#each commits as commit, index }
 		<p>
