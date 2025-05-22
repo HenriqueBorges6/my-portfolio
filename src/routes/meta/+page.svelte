@@ -7,6 +7,7 @@
     	offset,
 	} from '@floating-ui/dom';
 	import Bar from '$lib/Bar.svelte';
+	import Scrolly from "svelte-scrolly";
 
 
 	let data = [];
@@ -183,7 +184,23 @@ $: languageBreakdown = allTypes.map(type => [type, selectedCounts.get(type) || 0
 		<time class="time-label">{commitMaxTime.toLocaleString()}</time>
 	</div>
    
-	<svg viewBox="0 0 {width} {height}">
+<Scrolly bind:progress={ commitProgress }>
+	{#each commits as commit, index }
+		<p>
+			On {commit.datetime.toLocaleString("en", {dateStyle: "full", timeStyle: "short"})},
+			{index === 0 
+				? "I set forth on my very first commit, beginning a magical journey of code. You can view it "
+				: "I added another commit. See it "}
+			<a href="{commit.url}" target="_blank">
+				{index === 0 ? "here" : "here"}
+			</a>.
+			This update transformed {commit.totalLines} lines across { d3.rollups(commit.lines, D => D.length, d => d.file).length } files.
+			With every commit, our project grows.
+		</p>
+	{/each}
+
+	<svelte:fragment slot="viz">
+			<svg viewBox="0 0 {width} {height}">
 		<g transform="translate(0, {usableArea.bottom})" bind:this={xAxis} />
 		<g transform="translate({usableArea.left}, 0)" bind:this={yAxis} />	
 		<g class="gridlines" transform="translate({usableArea.left}, 0)" bind:this={yAxisGridlines} />
@@ -207,6 +224,10 @@ $: languageBreakdown = allTypes.map(type => [type, selectedCounts.get(type) || 0
 	</svg>
 	
 	<Bar data={languageBreakdown} width={width} />
+
+	</svelte:fragment>
+</Scrolly>
+
 
 	
 	<section>
