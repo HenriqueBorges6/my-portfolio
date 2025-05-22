@@ -10,7 +10,7 @@
 	import Scrolly from "svelte-scrolly";
 	import FileLines from "$lib/FileLines.svelte";
 
-	let colorScale = d3.scaleOrdinal(d3.schemeTableau10);
+	
 	let data = [];
 	let commits = [];
 	let width = 1000, height = 600;

@@ -11,6 +11,8 @@ const baseY = 10;
 const totalLinesOffset = 20;
 const fileInfoHeight = baseY + totalLinesOffset;
 const dotRowHeight = 20;
+let colorScale = d3.scaleOrdinal(d3.schemeTableau10);
+let previousDotCounts = new Map();
 
 function generateDots(file, svgWidth) {
     const totalDots = Math.ceil(file.lines.length / linesPerDot);
@@ -19,8 +21,11 @@ function generateDots(file, svgWidth) {
     let tspans = "";
     const dotRows = Math.ceil(totalDots / maxDotsPerRow);
     for (let r = 0; r < dotRows; r++) {
-        const count = Math.min(maxDotsPerRow, totalDots - r * maxDotsPerRow);
-        const rowDots = Array(count).fill('•').join('');
+        const rowLines = file.lines.slice(r * maxDotsPerRow, (r + 1) * maxDotsPerRow);
+        const rowDots = rowLines
+        .map(line => `<tspan class="dot" style="fill:${colorScale(line.type)}">•</tspan>`)
+        .join('');
+
         
         tspans += `<tspan x="${dotsColumnX}" dy="${r === 0 ? 0 : dotRowHeight + 'px'}">${rowDots}</tspan>`;
     }
@@ -46,7 +51,9 @@ $: positions = (() => {
 
 let files = [];
 $: files = d3.groups(lines, d => d.file)
-            .map(([name, lines]) => ({ name, lines }));
+            .map(([name, lines]) => ({ name, lines }))
+            .sort((a, b) => b.lines.length - a.lines.length);
+
 
             let svg;
 $: if (svg) {
@@ -85,9 +92,14 @@ $: if (svg) {
         .attr('dominant-baseline', 'hanging')
         .text(d => `${d.lines.length} lines`);
 
-    groups.attr('transform', (d, i) => `translate(0, ${positions[i]})`)
+    groups.transition()
+    .duration(2000)
+    .attr('transform', (d, i) => `translate(0, ${positions[i]})`)
+
+    groups
         .select('text.filename')
         .text(d => d.name);
+
 
     groups.select('text.linecount')
         .text(d => `${d.lines.length} lines`)
